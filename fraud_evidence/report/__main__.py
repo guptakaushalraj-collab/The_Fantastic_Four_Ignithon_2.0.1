@@ -1,11 +1,12 @@
 """CLI: generate an incident report.
 
     # From a Module 2 case file (runs the timeline, flags and redaction itself):
-    python -m fraud_evidence.report cases/CASE-001.json --format markdown --out report.md
+    python -m fraud_evidence.report cases/CASE-001.json --out reports/CASE-001
+    # -> reports/CASE-001.json and reports/CASE-001.txt (the human-readable report)
 
     # From the outputs of the earlier modules:
     python -m fraud_evidence.report --timeline timeline.json --evidence redacted.json \\
-        --flags issues.json --format markdown
+        --flags issues.json --format text
 
 The timeline and flags are computed when not given. Evidence files may be a
 case file, a JSON list or JSON Lines.
@@ -22,7 +23,7 @@ from ..consistency.__main__ import load_timeline
 from ..timeline.__main__ import load_records
 from ..timeline.builder import DEFAULT_TZ
 from .builder import IncidentReportBuilder
-from .render import render_markdown, render_text
+from .render import render_markdown, render_text, save_report
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -33,13 +34,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--timeline", type=Path, help="Module 3 timeline JSON")
     parser.add_argument("--evidence", type=Path, nargs="+", help="Module 5 redacted evidence")
     parser.add_argument("--flags", type=Path, help="Module 4 flags JSON")
-    parser.add_argument("--format", choices=["json", "text", "markdown"], default="json")
+    parser.add_argument("--format", nargs="+", choices=["json", "text", "markdown"],
+                        help="output format(s); default: json on stdout, json and text with --out")
     parser.add_argument("--tz", default=DEFAULT_TZ,
                         help=f"zone used when building the timeline (default {DEFAULT_TZ})")
     parser.add_argument("--case-id", help="case identifier (defaults to the input's)")
     parser.add_argument("--no-redact", action="store_true",
                         help="skip the final redaction pass (internal use only)")
-    parser.add_argument("--out", type=Path, help="write output to this file instead of stdout")
+    parser.add_argument("--out", type=Path,
+                        help="write the report to files named after this path (.json, .txt, .md)")
     args = parser.parse_args(argv)
 
     if not (args.records or args.timeline) and sys.stdin.isatty():
@@ -65,18 +68,13 @@ def main(argv: list[str] | None = None) -> int:
         evidence = builder.redactor.redact(raw).document
     report = builder.build(timeline, evidence, flags, args.case_id)
 
-    if args.format == "text":
-        output = render_text(report)
-    elif args.format == "markdown":
-        output = render_markdown(report)
-    else:
-        output = json.dumps(report, ensure_ascii=False, indent=2, default=str)
-
     if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(output + "\n", encoding="utf-8")
+        for path in save_report(report, args.out, tuple(args.format or ("json", "text"))).values():
+            print(f"wrote {path}", file=sys.stderr)
     else:
-        print(output)
+        renderers = {"json": lambda r: json.dumps(r, ensure_ascii=False, indent=2, default=str),
+                     "text": render_text, "markdown": render_markdown}
+        print("\n\n".join(renderers[f](report) for f in args.format or ["json"]))
     return 0
 
 

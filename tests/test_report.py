@@ -6,7 +6,13 @@ from fraud_evidence.consistency import check_timeline
 from fraud_evidence.extraction import InformationExtractor, JsonEvidenceStore
 from fraud_evidence.ingestion import EvidenceIngestor
 from fraud_evidence.redaction import PLACEHOLDER, redact
-from fraud_evidence.report import IncidentReportBuilder, build_report, render_markdown, render_text
+from fraud_evidence.report import (
+    IncidentReportBuilder,
+    build_report,
+    render_markdown,
+    render_text,
+    save_report,
+)
 from fraud_evidence.report.__main__ import main
 from fraud_evidence.timeline import build_timeline
 
@@ -188,10 +194,30 @@ def test_markdown(report):
     assert leaks(md) == []
 
 
-def test_text(report):
+def test_text_report_has_every_section_in_full(report):
     text = render_text(report)
-    assert text.startswith("INCIDENT REPORT — CASE-1")
-    assert "Total loss: ₹5,000.00" in text and "FRAUD ATTEMPT LOG" in text
+    assert text.splitlines()[1] == "INCIDENT REPORT — CASE-1"
+    for heading in ("1. EXECUTIVE SUMMARY", "2. TIMELINE OF EVENTS", "3. EVIDENCE",
+                    "4. FLAGS: MISSING AND CONTRADICTORY INFORMATION", "5. FRAUD ATTEMPT LOG"):
+        assert heading in text
+    assert "Assessment: Fraud with financial loss" in text
+    assert "Total loss:          ₹5,000.00" in text
+    # Details, not just titles: flag descriptions and next steps, evidence hashes, log amounts.
+    assert "Next step: Get the UTR number" in text
+    assert report["evidence"][0]["content_hash"] in text
+    assert "amount ₹5,000.00, ref 412345678901" in text
+    assert max(len(line) for line in text.splitlines()) <= 100
+    assert leaks(text) == []
+
+
+def test_save_report_writes_json_and_text(tmp_path, report):
+    paths = save_report(report, tmp_path / "out" / "CASE-1")
+    assert paths == {"json": tmp_path / "out" / "CASE-1.json", "text": tmp_path / "out" / "CASE-1.txt"}
+    assert json.loads(paths["json"].read_text()) == report
+    assert paths["text"].read_text() == render_text(report) + "\n"
+    # A suffix on the path is ignored, and markdown can be added.
+    paths = save_report(report, tmp_path / "r.json", ("json", "text", "markdown"))
+    assert sorted(p.name for p in paths.values()) == ["r.json", "r.md", "r.txt"]
 
 
 def test_empty_report_renders():
@@ -208,9 +234,15 @@ def test_cli_from_case_file(tmp_path, records):
     store = JsonEvidenceStore(tmp_path / "case.json", case_id="CASE-9")
     store.add_many(records)
     store.save()
-    out = tmp_path / "report.md"
-    assert main([str(tmp_path / "case.json"), "--format", "markdown", "--out", str(out)]) == 0
-    md = out.read_text()
+    assert main([str(tmp_path / "case.json"), "--out", str(tmp_path / "reports" / "CASE-9")]) == 0
+    report = json.loads((tmp_path / "reports" / "CASE-9.json").read_text())
+    text = (tmp_path / "reports" / "CASE-9.txt").read_text()
+    assert report["case_id"] == "CASE-9" and "INCIDENT REPORT — CASE-9" in text
+    assert leaks(report) == [] and leaks(text) == []
+
+    assert main([str(tmp_path / "case.json"), "--format", "markdown",
+                 "--out", str(tmp_path / "report.md")]) == 0
+    md = (tmp_path / "report.md").read_text()
     assert md.startswith("# Incident report — CASE-9") and leaks(md) == []
 
 
