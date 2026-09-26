@@ -2,5 +2,6 @@
 # Screenshot OCR (also requires the Tesseract binary, e.g. `apt install tesseract-ocr`):
 pillow>=10.0
 pytesseract>=0.3.10
-# Tests
+# Tests (jsonschema validates Module 2 output against its schema)
 pytest>=7.0
+jsonschema>=4.0

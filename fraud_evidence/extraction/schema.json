@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fraud-evidence/extraction/record/1.0",
+  "title": "Extracted evidence record",
+  "type": "object",
+  "required": [
+    "schema_version", "evidence_id", "evidence_type", "sender", "receiver", "timestamp",
+    "transaction", "transactions", "urls", "message", "contacts", "field_sources", "warnings"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "evidence_id": {"type": "string"},
+    "evidence_type": {"enum": ["message", "url", "transaction", "screenshot"]},
+    "source": {"type": ["string", "null"]},
+    "content_hash": {"type": ["string", "null"]},
+    "sender": {"$ref": "#/$defs/party"},
+    "receiver": {"$ref": "#/$defs/party"},
+    "timestamp": {"type": ["string", "null"], "description": "ISO-8601 time of the event (not of ingestion)"},
+    "transaction": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "required": ["transaction_id", "amount", "currency", "direction", "payment_method", "status"],
+          "properties": {
+            "transaction_id": {"type": ["string", "null"]},
+            "amount": {"type": ["number", "null"]},
+            "currency": {"type": ["string", "null"]},
+            "direction": {"enum": ["debit", "credit", null]},
+            "payment_method": {"type": ["string", "null"]},
+            "status": {"type": ["string", "null"]},
+            "record_count": {"type": "integer"},
+            "total_debit": {"type": "number"},
+            "total_credit": {"type": "number"},
+            "max_amount": {"type": ["number", "null"]}
+          }
+        }
+      ]
+    },
+    "transactions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["amount", "sender", "receiver", "timestamp"],
+        "properties": {
+          "amount": {"type": ["number", "null"]},
+          "sender": {"$ref": "#/$defs/party"},
+          "receiver": {"$ref": "#/$defs/party"},
+          "timestamp": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "urls": {"type": "array", "items": {"$ref": "#/$defs/url_reputation"}},
+    "message": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "required": ["content", "platform", "participants", "amounts_mentioned"],
+          "properties": {
+            "content": {"type": "string"},
+            "subject": {"type": ["string", "null"]},
+            "platform": {"enum": ["email", "sms", "chat", null]},
+            "participants": {"type": "array", "items": {"type": "string"}},
+            "char_count": {"type": "integer"},
+            "amounts_mentioned": {"type": "array"},
+            "ocr_confidence": {"type": ["number", "null"]}
+          }
+        }
+      ]
+    },
+    "contacts": {
+      "type": "object",
+      "required": ["phone_numbers", "emails", "upi_ids", "reference_numbers"],
+      "properties": {
+        "phone_numbers": {"type": "array", "items": {"type": "string"}},
+        "emails": {"type": "array", "items": {"type": "string"}},
+        "upi_ids": {"type": "array", "items": {"type": "string"}},
+        "reference_numbers": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "field_sources": {
+      "type": "object",
+      "description": "Where each populated field came from (header, chat_export, transaction, text, metadata, ...)",
+      "additionalProperties": {"type": "string"}
+    },
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "party": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "required": ["name", "identifier", "identifier_type", "raw"],
+          "properties": {
+            "name": {"type": ["string", "null"]},
+            "identifier": {"type": ["string", "null"]},
+            "identifier_type": {"enum": ["phone", "email", "upi_id", "account", "sms_sender_id", null]},
+            "raw": {"type": ["string", "null"]}
+          }
+        }
+      ]
+    },
+    "url_reputation": {
+      "type": "object",
+      "required": ["url", "domain", "score", "verdict", "signals", "sources"],
+      "properties": {
+        "url": {"type": "string"},
+        "domain": {"type": "string"},
+        "score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "verdict": {"enum": ["benign", "suspicious", "malicious"]},
+        "signals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "weight"],
+            "properties": {
+              "name": {"type": "string"},
+              "weight": {"type": "integer"},
+              "detail": {"type": "string"}
+            }
+          }
+        },
+        "sources": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}
