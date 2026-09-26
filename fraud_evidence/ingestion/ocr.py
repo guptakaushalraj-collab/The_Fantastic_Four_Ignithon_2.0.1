@@ -6,8 +6,34 @@ cloud OCR service can be swapped in without touching the rest of the module.
 
 from __future__ import annotations
 
+import os
+import shutil
+import sys
 from dataclasses import dataclass, field
 from typing import Protocol
+
+# Where the Windows installers put Tesseract, for when it isn't on PATH.
+_WINDOWS_TESSERACT = [
+    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+    r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    os.path.expandvars(r"%LOCALAPPDATA%\Programs\Tesseract-OCR\tesseract.exe"),
+]
+TESSERACT_HELP = (
+    "Tesseract OCR is not installed or not on PATH. Install it (Ubuntu: sudo apt install "
+    "tesseract-ocr; macOS: brew install tesseract; Windows: the UB Mannheim installer), "
+    "or set TESSERACT_CMD to the full path of tesseract.exe"
+)
+
+
+def find_tesseract() -> str | None:
+    """Path of the tesseract program: $TESSERACT_CMD, then PATH, then the Windows defaults."""
+    if cmd := os.environ.get("TESSERACT_CMD"):
+        return cmd if os.path.isfile(cmd) else None
+    if found := shutil.which("tesseract"):
+        return found
+    if sys.platform == "win32":
+        return next((p for p in _WINDOWS_TESSERACT if os.path.isfile(p)), None)
+    return None
 
 IMAGE_SIGNATURES = {
     b"\x89PNG\r\n\x1a\n": "image/png",
@@ -71,8 +97,11 @@ class TesseractOCR:
             from PIL import Image, ImageChops, ImageOps
         except ImportError as exc:
             raise OCRUnavailableError(
-                "Tesseract OCR requires 'pillow' and 'pytesseract'"
+                "Tesseract OCR requires 'pillow' and 'pytesseract' (pip install -r requirements.txt)"
             ) from exc
+        if not (cmd := find_tesseract()):
+            raise OCRUnavailableError(TESSERACT_HELP)
+        pytesseract.pytesseract.tesseract_cmd = cmd
 
         try:
             image = Image.open(io.BytesIO(image_bytes))
@@ -93,7 +122,7 @@ class TesseractOCR:
                 config=f"--psm {self.psm}" if self.psm else "",
             )
         except pytesseract.TesseractNotFoundError as exc:
-            raise OCRUnavailableError("tesseract binary not found on PATH") from exc
+            raise OCRUnavailableError(TESSERACT_HELP) from exc
 
         lines: dict[tuple, list[str]] = {}
         confidences = []

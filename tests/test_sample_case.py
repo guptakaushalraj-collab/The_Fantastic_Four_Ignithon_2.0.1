@@ -39,7 +39,7 @@ def test_sample_case_end_to_end(tmp_path):
     pytest.importorskip("pytesseract")
     if not shutil.which("tesseract"):
         pytest.skip("tesseract is not installed")
-    subprocess.run(["bash", str(ROOT / "samples" / "run_sample.sh"), str(tmp_path)],
+    subprocess.run([sys.executable, str(ROOT / "samples" / "run_sample.py"), str(tmp_path)],
                    check=True, capture_output=True)
     report = json.loads((tmp_path / "report" / "CASE-001.json").read_text())
     text = (tmp_path / "report" / "CASE-001.txt").read_text()

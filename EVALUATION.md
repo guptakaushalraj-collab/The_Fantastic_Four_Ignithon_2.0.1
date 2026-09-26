@@ -4,6 +4,9 @@ This guide takes you from a fresh clone to a finished incident report. It uses a
 case in `samples/case-001`, in which a fake "SBI KYC" scam leads to one lost UPI payment and one
 failed payment. All names, numbers and accounts in the sample are invented.
 
+The commands are the same on Windows, macOS and Linux. On Windows, type `py` instead of `python`
+if `python` opens the Microsoft Store or is not found.
+
 ## 1. Requirements
 
 - Python 3.10 or newer
@@ -15,8 +18,20 @@ failed payment. All names, numbers and accounts in the sample are invented.
 git clone https://github.com/guptakaushalraj-collab/The_Fantastic_Four_Ignithon_2.0.1
 cd The_Fantastic_Four_Ignithon_2.0.1
 python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+```
+
+Activate the virtual environment:
+
+| System | Command |
+|---|---|
+| macOS / Linux | `source .venv/bin/activate` |
+| Windows PowerShell | `.venv\Scripts\Activate.ps1` (if blocked, first run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`) |
+| Windows cmd | `.venv\Scripts\activate.bat` |
+
+Then install the Python packages:
+
+```bash
+python -m pip install -r requirements.txt
 ```
 
 Install Tesseract:
@@ -25,24 +40,23 @@ Install Tesseract:
 |---|---|
 | Ubuntu / Debian | `sudo apt install tesseract-ocr` |
 | macOS | `brew install tesseract` |
-| Windows | Install the UB Mannheim build from https://github.com/UB-Mannheim/tesseract/wiki and add its folder (for example `C:\Program Files\Tesseract-OCR`) to `PATH` |
+| Windows | Run the UB Mannheim installer from https://github.com/UB-Mannheim/tesseract/wiki with the default folder. It is found automatically there; otherwise set `TESSERACT_CMD` to the full path of `tesseract.exe`. |
 
-Check the install:
+Check the setup. Every line should say `[ok]`; a `[FAIL]` line says what to install:
 
 ```bash
-tesseract --version
-python -c "import pdfplumber, pytesseract; print('ok')"
+python -m fraud_evidence.check
 ```
 
 ## 3. Run the sample case
 
-One command runs all six modules:
+One command runs the setup check and all six modules:
 
 ```bash
-bash samples/run_sample.sh
+python samples/run_sample.py
 ```
 
-On Windows without bash, run the same steps by hand (section 4).
+If a step fails, the run stops and prints what to fix.
 
 ### The sample evidence
 
@@ -57,16 +71,18 @@ On Windows without bash, run the same steps by hand (section 4).
 
 ## 4. The same run, step by step
 
+Each command writes its output with `--out`. Avoid `>` redirects: on Windows PowerShell they
+save files in a different encoding.
+
 ```bash
-mkdir -p out
-# Module 1: ingest raw files into normalized evidence (JSON Lines)
-python -m fraud_evidence.ingestion samples/case-001/* > out/evidence.jsonl
+# Module 1: ingest raw evidence (a folder means every file in it)
+python -m fraud_evidence.ingestion samples/case-001 --out out/evidence.jsonl
 # Module 2: extract parties, amounts, dates and indicators into a case file
 python -m fraud_evidence.extraction out/evidence.jsonl --out out/CASE-001.json --case-id CASE-001
 # Module 3: chronological timeline
-python -m fraud_evidence.timeline out/CASE-001.json --format text > out/timeline.txt
+python -m fraud_evidence.timeline out/CASE-001.json --format text --out out/timeline.txt
 # Module 4: gaps and contradictions
-python -m fraud_evidence.consistency out/CASE-001.json --format text > out/flags.txt
+python -m fraud_evidence.consistency out/CASE-001.json --format text --out out/flags.txt
 # Module 5: redaction of personal data
 python -m fraud_evidence.redaction out/CASE-001.json --out out/redacted.json
 # Module 6: incident report (JSON + human-readable text)
@@ -88,7 +104,8 @@ one are enough to get the report. Steps 3 to 5 write each module's output for in
 | `out/report/CASE-001.txt` | Module 6: the human-readable incident report |
 | `out/report/CASE-001.json` | Module 6: the same report as JSON |
 
-Add `--format json text markdown` to the report command for a Markdown copy as well.
+Add `--format json text markdown` to the report command for a Markdown copy as well. All files
+are UTF-8; open the `.txt` report in any editor (Notepad, VS Code) to see the ₹ signs correctly.
 
 ### What the report should show
 
@@ -108,26 +125,33 @@ Add `--format json text markdown` to the report command for a Markdown copy as w
 python -m pytest
 ```
 
-All 175 tests should pass. `tests/test_sample_case.py` runs the sample case end to end and checks
-the numbers above; it is skipped if Tesseract is not installed.
+All 188 tests should pass. `tests/test_sample_case.py` runs the sample case end to end and checks
+the numbers above; it is skipped if Tesseract is not installed. `tests/test_cli_robustness.py`
+checks the commands on a Windows-style console and with PowerShell-encoded files.
 
 ## 7. Run it on your own evidence
 
 Put the files in a folder and use the same commands:
 
 ```bash
-python -m fraud_evidence.ingestion my-case/* --text "hxxp://pasted-link[.]xyz" > evidence.jsonl
-python -m fraud_evidence.extraction evidence.jsonl --out cases/MY-CASE.json --case-id MY-CASE
-python -m fraud_evidence.report cases/MY-CASE.json --out reports/MY-CASE
+python -m fraud_evidence.ingestion my-case --text "hxxp://pasted-link[.]xyz" --out work/evidence.jsonl
+python -m fraud_evidence.extraction work/evidence.jsonl --out work/MY-CASE.json --case-id MY-CASE
+python -m fraud_evidence.report work/MY-CASE.json --out reports/MY-CASE
 ```
 
 Accepted inputs: screenshots (PNG, JPEG and others), PDFs (text or scanned), bank statement
-CSV/JSON exports, bank alert SMS, WhatsApp chat exports, emails and plain text.
+CSV/JSON exports, bank alert SMS, WhatsApp chat exports, emails and plain text. Problems with an
+input, such as unreadable OCR, are printed as `warning:` lines and recorded in the report.
 
 ## Troubleshooting
 
-- **`OCR unavailable` warning, or empty text from images:** Tesseract is not installed or not on
-  `PATH`. Check with `tesseract --version`.
-- **`pdfplumber` import fails with `No module named '_cffi_backend'`:** run `pip install cffi`.
-- **`PDF support requires 'pdfplumber'`:** run `pip install -r requirements.txt` again inside the
-  virtual environment.
+Run `python -m fraud_evidence.check` first; it names most problems and their fix.
+
+| Message | Fix |
+|---|---|
+| `Tesseract OCR is not installed or not on PATH` | Install Tesseract (section 2), or set `TESSERACT_CMD` to the full path of `tesseract.exe` |
+| `No module named 'fraud_evidence'` | Run the commands from the repository folder (the one containing `EVALUATION.md`) |
+| `No module named 'PIL'` / `'pdfplumber'` / `'pytest'` | Activate the virtual environment, then `python -m pip install -r requirements.txt` |
+| `pdfplumber failed to load` | `python -m pip install --upgrade cffi cryptography` |
+| `fraud_evidence needs Python 3.10 or newer` | Install Python 3.10+ from python.org and recreate the virtual environment |
+| `file not found: ...` | Check the path; run the earlier step that creates that file |

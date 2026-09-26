@@ -15,6 +15,7 @@ import json
 import sys
 from pathlib import Path
 
+from ..cli import check_files, read_text, setup_io
 from .builder import DEFAULT_TZ, TimelineBuilder
 from .render import render_markdown, render_text
 
@@ -43,9 +44,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--case-id", help="case identifier (defaults to the case file's)")
     parser.add_argument("--out", type=Path, help="write output to this file instead of stdout")
     args = parser.parse_args(argv)
+    setup_io()
+    check_files(parser, *args.inputs)
 
     records, case_id = [], None
-    sources = [p.read_text(encoding="utf-8") for p in args.inputs] or [sys.stdin.read()]
+    sources = [read_text(p) for p in args.inputs] or [sys.stdin.read()]
     for text in sources:
         loaded, file_case = load_records(text)
         records.extend(loaded)

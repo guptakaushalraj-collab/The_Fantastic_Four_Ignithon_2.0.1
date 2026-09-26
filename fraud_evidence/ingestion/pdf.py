@@ -33,7 +33,14 @@ def read_pdf(data: bytes, resolution: int = 300) -> list[PDFPage]:
     try:
         import pdfplumber
     except ImportError as exc:
-        raise PDFUnavailableError("PDF support requires 'pdfplumber'") from exc
+        raise PDFUnavailableError(
+            "PDF support requires 'pdfplumber' (pip install -r requirements.txt)") from exc
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as exc:  # a broken 'cryptography' install panics on import
+        raise PDFUnavailableError(
+            f"pdfplumber failed to load ({type(exc).__name__}: {exc}); "
+            "try: pip install --upgrade cffi cryptography") from exc
     try:
         pages = []
         with pdfplumber.open(io.BytesIO(data)) as pdf:
