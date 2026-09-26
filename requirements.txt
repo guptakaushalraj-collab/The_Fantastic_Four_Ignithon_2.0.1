@@ -1,0 +1,6 @@
+# Core ingestion uses only the Python standard library (3.10+).
+# Screenshot OCR (also requires the Tesseract binary, e.g. `apt install tesseract-ocr`):
+pillow>=10.0
+pytesseract>=0.3.10
+# Tests
+pytest>=7.0
