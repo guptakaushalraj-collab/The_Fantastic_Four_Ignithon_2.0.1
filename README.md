@@ -70,3 +70,47 @@ CLI, chained with Module 1:
 python -m fraud_evidence.ingestion chat.png statement.csv --text "hxxp://kyc-update[.]xyz" \
   | python -m fraud_evidence.extraction --out cases/CASE-001.json --case-id CASE-001 --blocklist feeds/bad_domains.txt
 ```
+
+## Module 3: Chronological Timeline
+
+`fraud_evidence.timeline` takes Module 2's extracted records and builds an ordered list of timestamped events, each with a description, plus a case summary.
+
+**How events are built**
+- A suspicious message becomes a `suspicious_message` event, plus a `malicious_url`/`suspicious_url` event for each bad link it carries.
+- A bank statement becomes one event per transaction.
+- A message is suspicious if it has a bad URL, or contains scam language: a credential request (OTP/PIN/KYC), a payment request, an account threat, job/investment bait, or two weaker signals (urgency, reward bait).
+
+**How events are linked**
+- A debit to a UPI ID, phone or email that appeared in suspicious evidence becomes a `fraudulent_payment` (or a `fraud_attempt` if it failed). It lists `linked_evidence` IDs pointing back to the messages that named the account.
+- A credit from a suspect becomes `scammer_credit`, for example a ₹1 "test" payment.
+- A suspicious message after a loss becomes a `follow_up_message`.
+
+**How events are sorted**
+- Events are sorted by timestamp. Times without an offset are read as `Asia/Kolkata` by default; change this with `--tz`.
+- Date-only entries, such as statement rows, go at the end of their day, so the scam message that caused a payment comes before it.
+- Events at the same time follow the fraud sequence: contact → lure → transaction → fraud → follow-up.
+- Undated evidence goes last.
+
+**Summary:** attack chain (e.g. `suspicious message → malicious URL → fraudulent payment → follow-up message`), total loss per currency, time from first contact to first loss, suspect identifiers and highest severity.
+
+```python
+from fraud_evidence.timeline import build_timeline, render_text
+timeline = build_timeline(records, case_id="CASE-001")   # records from Module 2
+print(render_text(timeline))
+```
+
+```
+Attack chain: suspicious message → malicious URL → fraudulent payment → follow-up message
+Total loss: INR 5,000.00
+  1. 2024-03-12 10:15:00  [contact] ! Suspicious SMS from VM-SBIINB
+  2. 2024-03-12 10:15:00  (+0s)  [lure] !! Malicious URL shared by VM-SBIINB: sbi-kyc.top
+  3. 2024-03-12 10:40:00  (+25m)  [contact] ! Suspicious chat message from SBI Support
+  4. 2024-03-12 (date only)  [fraud] !!! Fraudulent payment: Debit of ₹5,000.00 to kyc.help@ybl
+  5. 2024-03-13 09:00:00  (+22h 20m)  [follow_up] !! Follow-up chat message from SBI Support
+```
+
+CLI (reads a Module 2 case file, a JSON list or JSON Lines; outputs `json`, `text` or `markdown`):
+
+```bash
+python -m fraud_evidence.timeline cases/CASE-001.json --format markdown --out cases/CASE-001-timeline.md
+```
