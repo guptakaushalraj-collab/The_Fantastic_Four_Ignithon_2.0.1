@@ -11,7 +11,7 @@ import json
 import sys
 from pathlib import Path
 
-from ..cli import setup_io
+from ..cli import expand_inputs, setup_io
 from .models import EvidenceType
 from .pipeline import EvidenceIngestor
 
@@ -34,17 +34,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.files and not args.text:
         parser.error("provide at least one file or --text")
 
-    files: list[Path] = []
-    for path in args.files:
-        if path.is_dir():
-            inside = sorted(p for p in path.iterdir() if p.is_file() and not p.name.startswith("."))
-            if not inside:
-                parser.error(f"folder is empty: {path}")
-            files += inside
-        elif path.is_file():
-            files.append(path)
-        else:
-            parser.error(f"file not found: {path}")
+    files = expand_inputs(parser, args.files)
 
     ingestor = EvidenceIngestor()
     items: list = list(files)

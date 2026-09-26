@@ -41,8 +41,8 @@ def test_sample_case_end_to_end(tmp_path):
         pytest.skip("tesseract is not installed")
     subprocess.run([sys.executable, str(ROOT / "samples" / "run_sample.py"), str(tmp_path)],
                    check=True, capture_output=True)
-    report = json.loads((tmp_path / "report" / "CASE-001.json").read_text())
-    text = (tmp_path / "report" / "CASE-001.txt").read_text()
+    report = json.loads((tmp_path / "CASE-001" / "report.json").read_text(encoding="utf-8"))
+    text = (tmp_path / "CASE-001" / "report.txt").read_text(encoding="utf-8")
     facts = report["executive_summary"]["key_facts"]
     assert report["executive_summary"]["assessment"] == "Fraud with financial loss"
     assert facts["total_loss"] == {"INR": 4999.0}

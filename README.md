@@ -1,6 +1,13 @@
 # The_Fantastic_Four_Ignithon_2.0.1
 This description is concise, professional, and highlights the problem statement, workflow, and purpose.
 
+**Run everything in one command** (all six modules, raw evidence in, JSON + text report out in `reports/CASE-001/`):
+
+```bash
+python -m pip install -r requirements.txt
+python -m fraud_evidence samples/case-001
+```
+
 **Evaluating?** [EVALUATION.md](EVALUATION.md) walks through a full run on a sample case, from a fresh clone to the incident report. To run it in the browser with nothing to install: [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/guptakaushalraj-collab/The_Fantastic_Four_Ignithon_2.0.1/blob/main/notebooks/run_on_colab.ipynb) or **Code → Codespaces → Create codespace**.
 
 ## Module 1: Evidence Ingestion

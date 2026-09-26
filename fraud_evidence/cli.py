@@ -47,3 +47,19 @@ def check_files(parser: argparse.ArgumentParser, *paths: Path | None) -> None:
             parser.error(f"file not found: {path}")
         if path.is_dir():
             parser.error(f"{path} is a folder; give the file inside it")
+
+
+def expand_inputs(parser: argparse.ArgumentParser, paths: list[Path]) -> list[Path]:
+    """Evidence files from files and folders (a folder means every file in it)."""
+    files: list[Path] = []
+    for path in paths:
+        if path.is_dir():
+            inside = sorted(p for p in path.iterdir() if p.is_file() and not p.name.startswith("."))
+            if not inside:
+                parser.error(f"folder is empty: {path}")
+            files += inside
+        elif path.is_file():
+            files.append(path)
+        else:
+            parser.error(f"file not found: {path}")
+    return files

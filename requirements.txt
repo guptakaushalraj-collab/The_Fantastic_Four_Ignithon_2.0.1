@@ -7,6 +7,8 @@ pytesseract>=0.3.10,<0.4  # tested 0.3.13
 # PDF evidence (text layer, and rendering scanned pages for OCR):
 pdfplumber>=0.10,<0.12    # tested 0.11.10
 cffi>=1.15                # pdfplumber's crypto dependency fails to load without it on some systems
+# Time zones on Windows, which has no zone database of its own:
+tzdata>=2023.3
 # Tests (jsonschema validates Module 2 output against its schema):
 pytest>=7.0,<10           # tested 9.1
 jsonschema>=4.0,<5        # tested 4.26

@@ -150,3 +150,4 @@ __pycache__/
 
 # Output of samples/run_sample.sh
 /out/
+/reports/
