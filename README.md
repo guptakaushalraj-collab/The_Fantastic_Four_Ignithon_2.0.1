@@ -167,3 +167,33 @@ CLI (reads a Module 3 timeline, or Module 2 output which it turns into a timelin
 python -m fraud_evidence.timeline cases/CASE-001.json | python -m fraud_evidence.consistency --format text
 python -m fraud_evidence.consistency cases/CASE-001.json --format markdown --out cases/CASE-001-issues.md
 ```
+
+## Module 5: Redaction
+
+`fraud_evidence.redaction` finds sensitive data in structured evidence and replaces it with `[REDACTED]`. It works on the output of any module: Module 2 records or case files, a Module 3 timeline or a Module 4 report. The output keeps the same shape, so it can still be fed to the next module.
+
+| Type | Found in |
+|---|---|
+| `account` | Parties with `identifier_type: account`, masked numbers (`XX1234`, `**5678`), and numbers after "A/c", "acct" or "account (no)". |
+| `card` | 13–19 digit numbers that pass the Luhn check. |
+| `phone` | Parties with `identifier_type: phone`, `contacts.phone_numbers`, and Indian mobile numbers in any text (`+91 98765 43210`, `09876543210`). |
+| `email` | Parties, `contacts.emails`, and email addresses in any text. |
+| `upi_id` | Parties, `contacts.upi_ids`, and UPI IDs in any text (`name@ybl`). |
+
+Any value found in a structured field is also removed wherever it appears in free text, even when no pattern would recognize it (e.g. an unmasked account number in a statement narration).
+
+What is kept: evidence IDs, content hashes, timestamps, amounts, URLs, display names, SMS sender IDs (`VM-SBIINB`) and transaction references (UTR/RRN), since those are needed to trace the money and do not identify a person. A number that matches a known transaction reference is never treated as a phone number.
+
+```python
+from fraud_evidence.redaction import Redactor, redact
+safe = redact(records)                          # a redacted copy; the input is untouched
+result = Redactor(types=["phone", "email"]).redact(case_document)
+result.counts                                   # {"phone": 3, "email": 1}
+```
+
+CLI (JSON or JSON Lines in, same format out; the count of redacted values goes to stderr):
+
+```bash
+python -m fraud_evidence.redaction cases/CASE-001.json --out cases/CASE-001-redacted.json
+python -m fraud_evidence.timeline cases/CASE-001.json | python -m fraud_evidence.redaction --types phone,email,upi_id
+```
