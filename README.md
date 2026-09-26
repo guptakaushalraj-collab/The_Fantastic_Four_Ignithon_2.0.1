@@ -114,3 +114,56 @@ CLI (reads a Module 2 case file, a JSON list or JSON Lines; outputs `json`, `tex
 ```bash
 python -m fraud_evidence.timeline cases/CASE-001.json --format markdown --out cases/CASE-001-timeline.md
 ```
+
+## Module 4: Gap & Contradiction Detection
+
+`fraud_evidence.consistency` takes a Module 3 timeline and returns a list of flagged issues. Each issue has an `issue_id`, a `category` (`gap`, `contradiction` or `duplicate`), an `issue_type`, a `severity` (`low`, `medium`, `high`), the timeline `events` (sequence numbers) and `evidence_ids` involved, the conflicting `values`, and a `suggestion` for what to collect or check next. Issues are sorted by severity.
+
+**Gaps (missing or incomplete details)**
+
+| Issue type | Flagged when |
+|---|---|
+| `missing_timestamp` | Evidence has no date (high for payments, medium otherwise; reported once per evidence item). |
+| `date_only_timestamp` | A payment has a date but no time, so its order against same-day messages is inferred. |
+| `missing_amount` | A transaction amount could not be read. |
+| `missing_counterparty` | A debit has no payee UPI ID/account/phone, or a credit has no payer. |
+| `missing_transaction_id` | A payment has no UTR/reference (medium for fraudulent payments). |
+| `missing_sender_id` | A suspicious message's sender is unknown or known only by a display name. |
+| `unlinked_debit` | A debit follows suspicious contact but its payee appears in no suspicious evidence. |
+| `no_transaction_evidence` | The case has suspicious contact but no payment records at all. |
+
+**Contradictions**
+
+| Issue type | Flagged when |
+|---|---|
+| `amount_mismatch`, `currency_mismatch`, `direction_mismatch`, `payee_mismatch`, `payer_mismatch`, `status_mismatch`, `timestamp_mismatch` | Two records with the same transaction reference disagree (e.g. a receipt says ₹4,000 and the statement says ₹5,000). Masked accounts are compared by their last 4 digits, phones by their last 10, and times within 1 hour count as the same. |
+| `requested_amount_mismatch` | A fraudulent payment's amount matches none of the amounts the linked scam messages asked for. |
+| `sender_id_conflict` | One sender name appears with several phone numbers/emails/UPI IDs. |
+| `identifier_name_conflict` | One identifier appears under several names (a common impersonation pattern). |
+| `payment_before_contact` | A fraudulent payment is dated before every message that named its payee. |
+
+Records with the same reference that agree are reported as a `duplicate_transaction`, because the timeline's total loss counts each of them.
+
+```python
+from fraud_evidence.consistency import check_timeline, render_text
+report = check_timeline(timeline)   # timeline from Module 3
+print(render_text(report))
+```
+
+```
+Gaps & contradictions — case C1
+6 issue(s) in 7 event(s): 2 contradiction, 4 gap
+
+ISSUE-001 !! [contradiction] Conflicting amounts for transaction 412345678901  (events #4, #6)
+     The same reference appears with different amounts: ₹4,000.00, ₹5,000.00.
+     → Check which record is authentic against the bank's own statement.
+ISSUE-002 !  [contradiction] Paid amount differs from the amount requested: Fraudulent payment: Debit of ₹4,000.00 to kyc.help@ybl  (events #3, #4)
+     The linked message asked for ₹5,000.00, but the payment was ₹4,000.00.
+```
+
+CLI (reads a Module 3 timeline, or Module 2 output which it turns into a timeline first; outputs `json`, `text` or `markdown`):
+
+```bash
+python -m fraud_evidence.timeline cases/CASE-001.json | python -m fraud_evidence.consistency --format text
+python -m fraud_evidence.consistency cases/CASE-001.json --format markdown --out cases/CASE-001-issues.md
+```
