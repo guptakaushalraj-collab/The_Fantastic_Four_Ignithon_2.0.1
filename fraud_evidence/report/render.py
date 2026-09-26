@@ -165,7 +165,8 @@ def render_text(report: dict[str, Any]) -> str:
             ("Hash", r.get("content_hash")),
         ):
             if value:
-                lines.append(f"     {label + ':':<8}{value}")
+                lines += textwrap.wrap(f"{label + ':':<8}{value}", width=WIDTH, initial_indent="     ",
+                                       subsequent_indent=" " * 13)
         lines += _wrap(r["summary"], indent="     ")
         for warning in r.get("warnings") or []:
             lines += _wrap(f"Warning: {warning}", indent="     ")

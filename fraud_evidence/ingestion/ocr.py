@@ -53,16 +53,22 @@ class TesseractOCR:
 
     name = "tesseract"
 
-    def __init__(self, lang: str = "eng", upscale_below: int = 1000):
+    def __init__(self, lang: str = "eng", upscale_below: int = 1000, psm: int | None = None,
+                 remove_highlights: bool = False):
+        """``psm`` is Tesseract's page segmentation mode; 6 ("one block of text") keeps each
+        printed table row on one line, which statements need. ``remove_highlights`` whitens
+        highlighter marks, which otherwise hide the text under them."""
         self.lang = lang
         self.upscale_below = upscale_below
+        self.psm = psm
+        self.remove_highlights = remove_highlights
 
     def extract_text(self, image_bytes: bytes) -> OCRResult:
         try:
             import io
 
             import pytesseract
-            from PIL import Image, ImageOps
+            from PIL import Image, ImageChops, ImageOps
         except ImportError as exc:
             raise OCRUnavailableError(
                 "Tesseract OCR requires 'pillow' and 'pytesseract'"
@@ -73,13 +79,18 @@ class TesseractOCR:
             width, height = image.size
             # Chat screenshots are often small and dark-themed; grayscale,
             # autocontrast and upscaling markedly improve Tesseract accuracy.
+            if self.remove_highlights:
+                # Brightest channel: coloured highlighter turns white, dark ink stays dark.
+                r, g, b = image.convert("RGB").split()
+                image = ImageChops.lighter(ImageChops.lighter(r, g), b)
             image = ImageOps.autocontrast(ImageOps.grayscale(image))
             if width < self.upscale_below:
                 factor = self.upscale_below / width
                 image = image.resize((int(width * factor), int(height * factor)))
 
             data = pytesseract.image_to_data(
-                image, lang=self.lang, output_type=pytesseract.Output.DICT
+                image, lang=self.lang, output_type=pytesseract.Output.DICT,
+                config=f"--psm {self.psm}" if self.psm else "",
             )
         except pytesseract.TesseractNotFoundError as exc:
             raise OCRUnavailableError("tesseract binary not found on PATH") from exc
@@ -101,9 +112,16 @@ class TesseractOCR:
             text=text,
             engine=self.name,
             confidence=confidence,
-            details={"image_size": [width, height], "lang": self.lang},
+            details={"image_size": [width, height], "lang": self.lang,
+                     **({"psm": self.psm} if self.psm else {}),
+                     **({"remove_highlights": True} if self.remove_highlights else {})},
         )
 
 
 def default_engine() -> OCREngine:
     return TesseractOCR()
+
+
+def document_engines() -> list[OCREngine]:
+    """OCR passes for scanned documents; the reading that parses best is kept."""
+    return [TesseractOCR(psm=6), TesseractOCR(psm=6, remove_highlights=True)]

@@ -88,7 +88,11 @@ class IncidentReportBuilder:
             "flags": {"summary": flags.get("summary", {}), "issues": [self._flag_row(i) for i in issues]},
             "fraud_attempt_log": attempts,
         }
-        return self.redactor.redact(report).document if self.redact else report
+        if not self.redact:
+            return report
+        # The timeline's parties tell the redactor which identifiers to look for in the text.
+        context = [e.get("actors") for e in events]
+        return self.redactor.redact({"report": report, "context": context}).document["report"]
 
     def build_from_records(self, records: Iterable[dict[str, Any]], case_id: str | None = None,
                            tz: str = DEFAULT_TZ) -> dict[str, Any]:
@@ -138,7 +142,7 @@ class IncidentReportBuilder:
             if links:
                 parts.append(f"{len(links)} malicious or suspicious link{'s' if len(links) != 1 else ''}")
             sentences.append(f"The victim received {' and '.join(parts)}.")
-        if s.get("attack_chain"):
+        if s.get("attack_chain") and (contacts or payments or failed):
             sentences.append(f"The attack followed this sequence: {s['attack_chain']}.")
         if payments:
             total = ", ".join(format_money(v, c) for c, v in loss.items()) or "an unknown amount"

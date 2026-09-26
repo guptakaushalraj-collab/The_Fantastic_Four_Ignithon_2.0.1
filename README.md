@@ -10,6 +10,8 @@ This description is concise, professional, and highlights the problem statement,
 | Image bytes / image file (PNG, JPEG, GIF, BMP, TIFF, WebP; detected by magic bytes) | `screenshot` | OCR via Tesseract (grayscale, autocontrast, upscaling). The OCR text is sub-classified as `message` or `transaction`, and receipts are parsed. |
 | A single URL, including defanged ones (`hxxps://evil[.]com`) | `url` | Refang, lowercase the scheme and host, strip default ports, fragments and tracking params (`utm_*`, `gclid`…). Adds host features: IP host, punycode, shortener, subdomain depth, TLD. |
 | `dict` / `list[dict]`, JSON, CSV/TSV bank statements, bank/UPI alert SMS | `transaction` | Bank-specific column names map to canonical fields (`transaction_id`, `timestamp`, `amount`, `currency`, `direction`, `sender`, `receiver`, `payment_method`, `status`, `description`). Dates are parsed to ISO-8601. Direction is inferred from debit/credit columns. |
+| PDF (detected by magic bytes) | `transaction` if it is a bank statement, else `message` | Pages with a text layer are read directly. Scanned pages are rendered and OCR'd twice (plain, and with highlighter marks whitened); the reading whose rows reconcile is kept. Needs `pdfplumber`. |
+| Text of a printed bank statement (PDF, OCR or pasted) | `transaction` | One record per row: date, amount, debit/credit, balance, UTR/UPI reference, cheque number, counterparty, method. See below. |
 | Any other text (SMS, WhatsApp, email) | `message` | Unicode NFKC, removal of zero-width/bidi characters, whitespace cleanup. |
 
 Every record also carries extracted **entities** (URLs, emails, Indian phone numbers, UPI IDs, amounts with currency, UTR/reference numbers), a SHA-256 `content_hash` for de-duplication and chain of custody, `metadata`, and `warnings` (for example, low OCR confidence or unparseable fields).
@@ -31,6 +33,8 @@ CLI (outputs JSON Lines):
 ```bash
 python -m fraud_evidence.ingestion screenshot.png statement.csv --text "hxxp://kyc-update[.]xyz" --pretty
 ```
+
+**Printed bank statements.** OCR keeps each row on a line but loses the columns, so amounts come from the running balance: the change from one row to the next gives the amount and whether it was a debit or a credit. A figure printed in the row that matches the change is preferred, because the balance itself may be misread. Rows whose balance wasn't read are solved together with the next row that has one (or with the closing balance). Common OCR slips are handled: `2536. 61Cr`, `B6000.00`, `92/09/26` for `02/09/26`, and narrations wrapped above and below the dates. The statement summary (`Dr. Count:4 Cr. Count:1 200740.00 200000.00`) and the closing balance are checked against the parsed rows. A mismatch becomes a warning, for example when pages of the statement are missing.
 
 The OCR backend is pluggable: pass any object with `name` and `extract_text(bytes) -> OCRResult` as `EvidenceIngestor(ocr_engine=...)`. If Tesseract isn't installed, screenshots are still ingested and tagged, with an `OCR unavailable` warning.
 
