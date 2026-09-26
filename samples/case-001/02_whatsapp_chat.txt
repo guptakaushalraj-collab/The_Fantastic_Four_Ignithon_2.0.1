@@ -1,0 +1,4 @@
+[12/09/26, 10:40:12 AM] SBI KYC Desk: Sir your KYC is pending. Pay Rs 4,999 verification fee to kyc.helpdesk@ybl immediately or account will be frozen
+[12/09/26, 10:41:03 AM] Customer: Ok sir paying now
+[12/09/26, 10:52:40 AM] SBI KYC Desk: Payment received. Now share the OTP you got to complete KYC
+[12/09/26, 11:05:18 AM] SBI KYC Desk: Pay Rs 15,000 refundable security deposit or legal action will be taken

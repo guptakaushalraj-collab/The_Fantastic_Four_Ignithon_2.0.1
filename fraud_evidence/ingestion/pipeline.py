@@ -24,6 +24,11 @@ _LONE_URL_RE = re.compile(
     r"(?i)^(?:(?:https?|hxxps?)(?:://|\[://\])|www\.)\S+$"
     r"|^(?:[a-z0-9-]+(?:\.|\[\.\]))+[a-z]{2,}(?:/\S*)?$"
 )
+# A chat export line: "[12/03/24, 10:15:02 AM] Name: text" or "12/03/2024, 10:15 - Name: text".
+_CHAT_LINE_RE = re.compile(
+    r"^\[?\d{1,2}/\d{1,2}/\d{2,4},?\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AaPp]\.?[Mm]\.?)?\]?"
+    r"\s*(?:-\s*)?[^:\n]{1,60}?:\s"
+)
 _TEXT_EXTENSIONS = {".txt", ".json", ".csv", ".tsv", ".eml", ".log", ".md", ""}
 
 
@@ -121,6 +126,9 @@ class EvidenceIngestor:
         stripped = normalize_text(text)
         if _LONE_URL_RE.match(stripped):
             return EvidenceType.URL
+        if looks_like_chat(stripped):
+            # A chat that talks about payments is still a conversation, not a receipt.
+            return EvidenceType.MESSAGE
         if (parse_structured(stripped) is not None or looks_like_statement(stripped)
                 or looks_like_transaction_text(stripped)):
             return EvidenceType.TRANSACTION
@@ -342,3 +350,10 @@ def _summarize(record: dict[str, Any]) -> str:
         if record.get(key) is not None
     ]
     return "; ".join(parts) or refang(str(record.get("description") or ""))
+
+
+def looks_like_chat(text: str) -> bool:
+    """True for a chat export: most lines start with a "[date, time] Name:" stamp."""
+    lines = [line for line in text.splitlines() if line.strip()]
+    stamped = sum(1 for line in lines if _CHAT_LINE_RE.match(line))
+    return stamped > 0 and stamped * 2 >= len(lines)

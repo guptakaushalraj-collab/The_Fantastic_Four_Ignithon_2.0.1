@@ -1,6 +1,8 @@
 # The_Fantastic_Four_Ignithon_2.0.1
 This description is concise, professional, and highlights the problem statement, workflow, and purpose.
 
+**Evaluating?** [EVALUATION.md](EVALUATION.md) walks through a full run on a sample case, from a fresh clone to the incident report.
+
 ## Module 1: Evidence Ingestion
 
 `fraud_evidence.ingestion` turns raw fraud evidence into normalized, tagged `Evidence` records that later modules can consume uniformly.
