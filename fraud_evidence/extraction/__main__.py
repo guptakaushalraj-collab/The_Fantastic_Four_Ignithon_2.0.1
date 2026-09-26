@@ -14,15 +14,16 @@ import json
 import sys
 from pathlib import Path
 
+from ..cli import check_files, read_text, setup_io
 from .extractor import InformationExtractor
 from .reputation import ListProvider, URLReputationScorer
 from .store import JsonEvidenceStore
 
 
 def _read_lines(paths: list[Path]):
-    streams = [p.open(encoding="utf-8") for p in paths] if paths else [sys.stdin]
-    for stream in streams:
-        for line in stream:
+    texts = [read_text(p) for p in paths] if paths else [sys.stdin.read()]
+    for text in texts:
+        for line in text.splitlines():
             if line.strip():
                 yield json.loads(line)
 
@@ -30,7 +31,7 @@ def _read_lines(paths: list[Path]):
 def _read_list(path: Path | None) -> list[str]:
     if path is None:
         return []
-    return [ln.strip() for ln in path.read_text(encoding="utf-8").splitlines()
+    return [ln.strip() for ln in read_text(path).splitlines()
             if ln.strip() and not ln.startswith("#")]
 
 
@@ -45,6 +46,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--allowlist", type=Path, help="file of trusted domains, one per line")
     parser.add_argument("--pretty", action="store_true", help="indent JSON Lines output")
     args = parser.parse_args(argv)
+    setup_io()
+    check_files(parser, *args.inputs, args.blocklist, args.allowlist)
 
     providers = []
     if args.blocklist or args.allowlist:

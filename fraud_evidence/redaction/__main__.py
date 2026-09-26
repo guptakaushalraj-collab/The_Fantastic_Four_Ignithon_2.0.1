@@ -15,6 +15,7 @@ import json
 import sys
 from pathlib import Path
 
+from ..cli import check_files, read_text, setup_io
 from .redactor import PLACEHOLDER, SENSITIVE_TYPES, Redactor
 
 
@@ -27,6 +28,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--placeholder", default=PLACEHOLDER)
     parser.add_argument("--out", type=Path, help="write output to this file instead of stdout")
     args = parser.parse_args(argv)
+    setup_io()
+    check_files(parser, *args.inputs)
 
     try:
         redactor = Redactor([t.strip() for t in args.types.split(",") if t.strip()], args.placeholder)
@@ -34,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(str(exc))
 
     outputs, counts = [], {}
-    for text in [p.read_text(encoding="utf-8") for p in args.inputs] or [sys.stdin.read()]:
+    for text in [read_text(p) for p in args.inputs] or [sys.stdin.read()]:
         text = text.strip()
         if not text:
             continue

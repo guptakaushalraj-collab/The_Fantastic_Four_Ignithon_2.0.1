@@ -13,11 +13,25 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, time, timedelta, timezone, tzinfo
 from typing import Any, Iterable
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .indicators import find_indicators, is_suspicious
 
 DEFAULT_TZ = "Asia/Kolkata"
+# India has had a fixed +05:30 offset since 1945, so it works without a zone database.
+_FIXED_ZONES = {"Asia/Kolkata": timezone(timedelta(hours=5, minutes=30), "IST"),
+                "Asia/Calcutta": timezone(timedelta(hours=5, minutes=30), "IST"),
+                "UTC": timezone.utc}
+
+
+def get_zone(name: str) -> tzinfo:
+    """``ZoneInfo(name)``, even on Windows without the ``tzdata`` package for common zones."""
+    try:
+        return ZoneInfo(name)
+    except ZoneInfoNotFoundError:
+        if name in _FIXED_ZONES:
+            return _FIXED_ZONES[name]
+        raise ValueError(f"unknown time zone {name!r}; on Windows run: pip install tzdata") from None
 
 # Order of the fraud kill chain; also breaks ties between same-time events.
 STAGE_ORDER = {
@@ -134,7 +148,7 @@ class TimelineBuilder:
     """
 
     def __init__(self, tz: str | tzinfo = DEFAULT_TZ):
-        self.tz = ZoneInfo(tz) if isinstance(tz, str) else tz
+        self.tz = get_zone(tz) if isinstance(tz, str) else tz
 
     def build(self, records: Iterable[dict[str, Any]], case_id: str | None = None) -> dict[str, Any]:
         records = list(records)

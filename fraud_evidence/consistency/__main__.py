@@ -14,6 +14,7 @@ import json
 import sys
 from pathlib import Path
 
+from ..cli import check_files, read_text, setup_io
 from ..timeline.__main__ import load_records
 from ..timeline.builder import DEFAULT_TZ, TimelineBuilder
 from .detector import ConsistencyChecker
@@ -49,8 +50,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--case-id", help="case identifier (defaults to the input's)")
     parser.add_argument("--out", type=Path, help="write output to this file instead of stdout")
     args = parser.parse_args(argv)
+    setup_io()
+    check_files(parser, *args.inputs)
 
-    texts = [p.read_text(encoding="utf-8") for p in args.inputs] or [sys.stdin.read()]
+    texts = [read_text(p) for p in args.inputs] or [sys.stdin.read()]
     report = ConsistencyChecker().check(load_timeline(texts, args.tz, args.case_id))
     if args.format == "text":
         output = render_text(report)

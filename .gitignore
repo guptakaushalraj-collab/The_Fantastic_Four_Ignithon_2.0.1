@@ -147,3 +147,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+
+# Output of samples/run_sample.sh
+/out/
+/reports/

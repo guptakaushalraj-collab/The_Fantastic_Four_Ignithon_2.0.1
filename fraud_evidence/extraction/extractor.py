@@ -40,6 +40,8 @@ _EXTRA_DATETIME_FORMATS = (
     "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M",
 )
 _ACCOUNT_RE = re.compile(r"^[xX*]*\d{3,18}$")
+# "A/c 7210933889": marked as an account, so a 10-digit number is not taken for a phone.
+_ACCOUNT_PREFIX_RE = re.compile(r"(?i)^(?:a/?c|acct|account)(?:\s*no)?\.?\s*[:#]?\s*([xX*]*\d{3,18})$")
 _PHONE_RE = re.compile(r"^\+?\d[\d\s-]{8,14}\d$")
 
 
@@ -77,16 +79,23 @@ def make_party(raw: Any, name: str | None = None) -> dict[str, Any] | None:
             name = name or m.group(1).strip() or None
             identifier = m.group(2).strip()
         ident = identifier or ""
-        if "@" in ident:
+        account = _ACCOUNT_PREFIX_RE.match(ident)
+        digits = re.sub(r"\D", "", ident)
+        # Indian mobile: 10 digits from 6-9, optionally written with 0 or 91 in front.
+        mobile = (len(digits) == 10 and digits[0] in "6789"
+                  or len(digits) == 11 and digits[0] == "0" and digits[1] in "6789"
+                  or len(digits) == 12 and digits[:2] == "91" and digits[2] in "6789")
+        if account:
+            id_type, identifier = "account", account.group(1)
+        elif "@" in ident:
             id_type = "email" if "." in ident.split("@", 1)[1] else "upi_id"
             identifier = ident.lower()
         elif _SMS_HEADER_RE.fullmatch(ident):
             id_type = "sms_sender_id"
-        elif _PHONE_RE.match(ident) and len(re.sub(r"\D", "", ident)) >= 10:
-            digits = re.sub(r"\D", "", ident)
+        elif _PHONE_RE.match(ident) and len(digits) >= 10 and (mobile or ident.startswith("+")):
+            # Other bare digit strings (e.g. an 11-digit account number) are not phones.
             id_type = "phone"
-            identifier = "+91" + digits[-10:] if len(digits) in (10, 12) and digits[-10] in "6789" \
-                else "+" + digits
+            identifier = "+91" + digits[-10:] if mobile else "+" + digits
         elif _ACCOUNT_RE.match(ident):
             id_type = "account"
         else:

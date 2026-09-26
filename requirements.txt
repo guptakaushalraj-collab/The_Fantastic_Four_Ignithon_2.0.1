@@ -1,7 +1,14 @@
-# Core ingestion uses only the Python standard library (3.10+).
-# Screenshot OCR (also requires the Tesseract binary, e.g. `apt install tesseract-ocr`):
-pillow>=10.0
-pytesseract>=0.3.10
-# Tests (jsonschema validates Module 2 output against its schema)
-pytest>=7.0
-jsonschema>=4.0
+# Python 3.10 or newer. Check your setup with: python -m fraud_evidence.check
+# Tested with the versions noted on the right; the ranges stay within those major versions.
+#
+# Screenshot and scanned-PDF OCR (also needs the Tesseract program; see EVALUATION.md):
+pillow>=10.0,<13          # tested 12.3
+pytesseract>=0.3.10,<0.4  # tested 0.3.13
+# PDF evidence (text layer, and rendering scanned pages for OCR):
+pdfplumber>=0.10,<0.12    # tested 0.11.10
+cffi>=1.15                # pdfplumber's crypto dependency fails to load without it on some systems
+# Time zones on Windows, which has no zone database of its own:
+tzdata>=2023.3
+# Tests (jsonschema validates Module 2 output against its schema):
+pytest>=7.0,<10           # tested 9.1
+jsonschema>=4.0,<5        # tested 4.26

@@ -19,6 +19,7 @@ import json
 import sys
 from pathlib import Path
 
+from ..cli import check_files, read_text, setup_io
 from ..consistency.__main__ import load_timeline
 from ..timeline.__main__ import load_records
 from ..timeline.builder import DEFAULT_TZ
@@ -44,12 +45,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path,
                         help="write the report to files named after this path (.json, .txt, .md)")
     args = parser.parse_args(argv)
+    setup_io()
+    check_files(parser, *args.records, args.timeline, args.flags, *(args.evidence or []))
 
     if not (args.records or args.timeline) and sys.stdin.isatty():
         parser.error("give Module 2 records, or --timeline")
 
     builder = IncidentReportBuilder(redact=not args.no_redact)
-    read = lambda p: p.read_text(encoding="utf-8")  # noqa: E731
+    read = read_text
 
     flags = json.loads(read(args.flags)) if args.flags else None
     evidence = None

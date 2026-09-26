@@ -61,6 +61,11 @@ _TEXT_DATE_RE = re.compile(
 def _normalize_key(key: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", str(key).strip().lower()).strip("_")
 
+# A time right after the date: "12 Sep 2026, 10:44 AM", "12-03-24 at 14:05:09".
+_TEXT_TIME_RE = re.compile(
+    r"\s*,?\s*(?:at\s+)?(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s?([AaPp])\.?[Mm]\.?)?\b"
+)
+
 
 def parse_timestamp(value: Any) -> str | None:
     if value in (None, ""):
@@ -163,7 +168,7 @@ def parse_transaction_text(text: str) -> dict[str, Any]:
     if m := _METHOD_RE.search(text):
         record["payment_method"] = m.group(1).upper().replace(" ", "")
     if m := _TEXT_DATE_RE.search(text):
-        record["timestamp"] = parse_timestamp(m.group(1).replace(" ", "-")) or m.group(1)
+        record["timestamp"] = _text_timestamp(text, m)
 
     account = _ACCOUNT_RE.search(text)
     counterparty = entities.upi_ids[0] if entities.upi_ids else None
@@ -176,6 +181,22 @@ def parse_transaction_text(text: str) -> dict[str, Any]:
 
     record["description"] = text
     return record
+
+
+def _text_timestamp(text: str, date: re.Match) -> str:
+    """The date matched in an alert or receipt, plus the time printed right after it."""
+    day = parse_timestamp(date.group(1).replace(" ", "-"))
+    t = _TEXT_TIME_RE.match(text, date.end())
+    if not day or not t:
+        return day or date.group(1)
+    hour, minute, second = int(t.group(1)), int(t.group(2)), int(t.group(3) or 0)
+    if meridiem := (t.group(4) or "").lower():
+        if not 1 <= hour <= 12:
+            return day
+        hour = hour % 12 + (12 if meridiem == "p" else 0)
+    if hour > 23 or minute > 59 or second > 59:
+        return day
+    return datetime.fromisoformat(day).replace(hour=hour, minute=minute, second=second).isoformat()
 
 
 def looks_like_transaction_text(text: str) -> bool:
