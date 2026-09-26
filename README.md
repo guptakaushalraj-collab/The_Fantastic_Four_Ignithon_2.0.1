@@ -197,3 +197,59 @@ CLI (JSON or JSON Lines in, same format out; the count of redacted values goes t
 python -m fraud_evidence.redaction cases/CASE-001.json --out cases/CASE-001-redacted.json
 python -m fraud_evidence.timeline cases/CASE-001.json | python -m fraud_evidence.redaction --types phone,email,upi_id
 ```
+
+## Module 6: Incident Report Generation
+
+`fraud_evidence.report` combines the timeline (Module 3), the redacted evidence (Module 5) and the flags (Module 4) into one structured incident report. The output is a JSON report plus a human-readable text report (Markdown is also available).
+
+| Section | Contents |
+|---|---|
+| `executive_summary` | An assessment (`Fraud with financial loss`, `Attempted fraud, no confirmed loss`, `Suspicious contact, no payment found` or `No fraud indicators found`), a plain-language summary paragraph, and key facts: first contact, first loss, attack chain, contact channels, payment and attempt counts, total loss, suspect count and flag counts. |
+| `timeline` | Every timeline event in order: time, stage, severity, title and description. |
+| `evidence` | One row per evidence item: type, source, time, sender, receiver, a content summary, content hash and warnings, plus the timeline events and flags that refer to it. |
+| `flags` | The Module 4 gaps, contradictions and duplicates, with the suggested next step for each. |
+| `fraud_attempt_log` | Every fraud action in order (scam contact, phishing link, payment to suspect, failed attempt, follow-up demand), with channel, counterparty, amount, UTR/URL and outcome (`contacted`, `link sent`, `money lost`, `failed`…). |
+
+A payment recorded in several documents (for example an SMS alert and a receipt with the same UTR) is counted once in the loss total.
+
+The finished report goes through the redactor once more, so identifiers carried by the timeline or the flags never appear unredacted. Pass `redact=False` (or `--no-redact`) only for a report that stays inside the investigating team.
+
+```python
+from fraud_evidence.report import IncidentReportBuilder, build_report, render_text, save_report
+report = build_report(timeline, redacted_records, flags)            # outputs of Modules 3, 5 and 4
+report = IncidentReportBuilder().build_from_records(records, "CASE-001")  # or run Modules 3-5 from Module 2 records
+save_report(report, "reports/CASE-001")   # writes reports/CASE-001.json and reports/CASE-001.txt
+print(render_text(report))
+```
+
+CLI:
+
+```bash
+# From a Module 2 case file (builds the timeline, flags and redaction itself).
+# Writes reports/CASE-001.json and the human-readable reports/CASE-001.txt:
+python -m fraud_evidence.report cases/CASE-001.json --out reports/CASE-001
+
+# From the earlier modules' outputs (timeline and flags are computed if omitted):
+python -m fraud_evidence.report --timeline timeline.json --evidence redacted.json --flags issues.json --out reports/CASE-001
+```
+
+`--format` picks the formats (`json`, `text`, `markdown`; several are allowed). Without `--out`, the report is printed to stdout, as JSON by default.
+
+The text report has all five sections in full, wrapped at 100 columns so it can be read, printed or emailed as is. It includes flag descriptions and next steps, evidence hashes, and each logged attempt's amount and UTR.
+
+```
+====================================================================================================
+INCIDENT REPORT — CASE-001
+====================================================================================================
+1. EXECUTIVE SUMMARY
+--------------------
+Assessment: Fraud with financial loss
+
+The evidence (4 items) covers events between 2024-03-12 10:15 and 2024-03-13 09:30. The victim
+received 2 suspicious messages by SMS and chat and 1 malicious or suspicious link. ...
+...
+5. FRAUD ATTEMPT LOG
+--------------------
+  4. 2024-03-12 (date only)  Payment to suspect  -> money lost
+     channel UPI, counterparty [REDACTED], amount ₹5,000.00, ref 412345678901
+```
