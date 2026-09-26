@@ -7,6 +7,20 @@ failed payment. All names, numbers and accounts in the sample are invented.
 The commands are the same on Windows, macOS and Linux. On Windows, type `py` instead of `python`
 if `python` opens the Microsoft Store or is not found.
 
+## 0. Run it online, with nothing to install
+
+**Google Colab** (needs a Google account):
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/guptakaushalraj-collab/The_Fantastic_Four_Ignithon_2.0.1/blob/main/notebooks/run_on_colab.ipynb)
+Open the link, click **Runtime → Run all**, and scroll down to the report. The notebook installs
+Tesseract, runs the sample case, prints the report, and can also run the tests or your own files.
+
+**GitHub Codespaces** (needs a GitHub account): on the repository page click
+**Code → Codespaces → Create codespace on main**. Setup runs by itself (Tesseract and the Python
+packages are installed from `.devcontainer/devcontainer.json`). When the terminal is ready, run
+`python samples/run_sample.py` and open `out/report/CASE-001.txt`.
+
+The rest of this guide is for running on your own computer.
+
 ## 1. Requirements
 
 - Python 3.10 or newer

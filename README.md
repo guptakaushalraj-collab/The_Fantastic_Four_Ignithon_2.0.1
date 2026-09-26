@@ -1,7 +1,7 @@
 # The_Fantastic_Four_Ignithon_2.0.1
 This description is concise, professional, and highlights the problem statement, workflow, and purpose.
 
-**Evaluating?** [EVALUATION.md](EVALUATION.md) walks through a full run on a sample case, from a fresh clone to the incident report.
+**Evaluating?** [EVALUATION.md](EVALUATION.md) walks through a full run on a sample case, from a fresh clone to the incident report. To run it in the browser with nothing to install: [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/guptakaushalraj-collab/The_Fantastic_Four_Ignithon_2.0.1/blob/main/notebooks/run_on_colab.ipynb) or **Code → Codespaces → Create codespace**.
 
 ## Module 1: Evidence Ingestion
 
